@@ -66,14 +66,29 @@ private:
     ComRobot robot;
     int robotStarted = 0;
     int move = MESSAGE_ROBOT_STOP;
+    int withWD = 0;
+    int comRobotOpen =0;
+    int compteurEchec = 0;
+    BatteryLevel levelBat = BATTERY_EMPTY;
+    int allowCapture = 0;
+    Img image;
+    int allowCapturePosition = 0;
+    Arena arena;
+    int arenaIsCorrect=0;
+    
+    
+    
+    
     
     /**********************************************************************/
     /* Tasks                                                              */
     /**********************************************************************/
     RT_TASK th_server;
-    RT_TASK th_sendToMon;
     RT_TASK th_receiveFromMon;
-    RT_TASK th_openComRobot;
+    RT_TASK th_sendToMon;
+    RT_TASK th_clearSupervisor;
+    RT_TASK th_manageComRobot;
+    RT_TASK th_writeToRobot;
     RT_TASK th_startRobot;
     RT_TASK th_move;
     RT_TASK th_battery;
@@ -85,6 +100,15 @@ private:
     RT_MUTEX mutex_robot;
     RT_MUTEX mutex_robotStarted;
     RT_MUTEX mutex_move;
+    RT_MUTEX mutex_withWD;
+    RT_MUTEX mutex_comRobotOpen;
+    RT_MUTEX mutex_compteurEchec;
+    RT_MUTEX mutex_levelBat;
+    RT_MUTEX mutex_allowCapture;
+    RT_MUTEX mutex_image;
+    RT_MUTEX mutex_allowCapturePosition;
+    RT_MUTEX mutex_arena;
+    RT_MUTEX mutex_arenaIsCorrect;
 
     /**********************************************************************/
     /* Semaphores                                                         */
@@ -93,12 +117,19 @@ private:
     RT_SEM sem_openComRobot;
     RT_SEM sem_serverOk;
     RT_SEM sem_startRobot;
+    RT_SEM sem_closeComRobot;
+    RT_SEM sem_clearSupervisor;
+    RT_SEM sem_batteryUpdatedFromRobot;
+    
 
     /**********************************************************************/
     /* Message queues                                                     */
     /**********************************************************************/
     int MSG_QUEUE_SIZE;
     RT_QUEUE q_messageToMon;
+    RT_QUEUE q_messageToRobot;
+    RT_QUEUE q_reponseFromRobot;
+    
     
     /**********************************************************************/
     /* Tasks' functions                                                   */
@@ -107,21 +138,33 @@ private:
      * @brief Thread handling server communication with the monitor.
      */
     void ServerTask(void *arg);
+    
+    /**
+     * @brief Thread receiving data from monitor.
+     */
+    void ReceiveFromMonTask(void *arg);
      
     /**
      * @brief Thread sending data to monitor.
      */
     void SendToMonTask(void *arg);
-        
+     
     /**
-     * @brief Thread receiving data from monitor.
+     * @brief Thread clearing supervisor. put in initial state
      */
-    void ReceiveFromMonTask(void *arg);
+    void ClearSupervisor(void *arg);  
+    
     
     /**
      * @brief Thread opening communication with the robot.
      */
-    void OpenComRobot(void *arg);
+    void ManageComRobot(void *arg);
+    
+     
+    /**
+     * @brief Thread sending data to robot.
+     */
+    void WriteToRobot(void *arg);
 
     /**
      * @brief Thread starting the communication with the robot.

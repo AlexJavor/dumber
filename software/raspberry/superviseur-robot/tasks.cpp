@@ -20,13 +20,16 @@
 
 // Déclaration des priorités des taches
 #define PRIORITY_TSERVER 30
-#define PRIORITY_TOPENCOMROBOT 20
-#define PRIORITY_TMOVE 20
-#define PRIORITY_TSENDTOMON 22
 #define PRIORITY_TRECEIVEFROMMON 25
+#define PRIORITY_TSENDTOMON 22
+#define PRIORITY_TCLEARSUPERVISOR 30
+#define PRIORITY_TMANAGECOMROBOT 20
+#define PRIORITY_TWRITETOROBOT 19
 #define PRIORITY_TSTARTROBOT 20
+#define PRIORITY_TMOVE 20
 #define PRIORITY_TCAMERA 21
 #define PRIORITY_TBATTERY 26 //Possible value change
+
 
 /*
  * Some remarks:
@@ -74,6 +77,42 @@ void Tasks::Init() {
         cerr << "Error mutex create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
+    if (err = rt_mutex_create(&mutex_withWD, NULL)) {
+        cerr << "Error mutex create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_mutex_create(&mutex_comRobotOpen, NULL)) {
+        cerr << "Error mutex create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+        if (err = rt_mutex_create(&mutex_compteurEchec, NULL)) {
+        cerr << "Error mutex create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+        if (err = rt_mutex_create(&mutex_levelBat, NULL)) {
+        cerr << "Error mutex create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+        if (err = rt_mutex_create(&mutex_allowCapture, NULL)) {
+        cerr << "Error mutex create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+        if (err = rt_mutex_create(&mutex_image, NULL)) {
+        cerr << "Error mutex create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+        if (err = rt_mutex_create(&mutex_allowCapturePosition, NULL)) {
+        cerr << "Error mutex create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+        if (err = rt_mutex_create(&mutex_arena, NULL)) {
+        cerr << "Error mutex create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+        if (err = rt_mutex_create(&mutex_arenaIsCorrect, NULL)) {
+        cerr << "Error mutex create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
     cout << "Mutexes created successfully" << endl << flush;
 
     /**************************************************************************************/
@@ -95,6 +134,18 @@ void Tasks::Init() {
         cerr << "Error semaphore create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
+    if (err = rt_sem_create(&sem_closeComRobot, NULL, 0, S_FIFO)) {
+        cerr << "Error semaphore create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_sem_create(&sem_clearSupervisor, NULL, 0, S_FIFO)) {
+        cerr << "Error semaphore create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_sem_create(&sem_batteryUpdatedFromRobot, NULL, 0, S_FIFO)) {
+        cerr << "Error semaphore create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
     cout << "Semaphores created successfully" << endl << flush;
 
     /**************************************************************************************/
@@ -112,7 +163,16 @@ void Tasks::Init() {
         cerr << "Error task create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
-    if (err = rt_task_create(&th_openComRobot, "th_openComRobot", 0, PRIORITY_TOPENCOMROBOT, 0)) {
+    if (err = rt_task_create(&th_clearSupervisor, "th_clearSupervisor", 0, PRIORITY_TCLEARSUPERVISOR, 0)) {
+        cerr << "Error task create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    
+    if (err = rt_task_create(&th_manageComRobot, "th_manageComRobot", 0, PRIORITY_TMANAGECOMROBOT, 0)) {
+        cerr << "Error task create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_task_create(&th_writeToRobot, "th_writeToRobot", 0, PRIORITY_TWRITETOROBOT, 0)) {
         cerr << "Error task create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
@@ -134,6 +194,14 @@ void Tasks::Init() {
     /* Message queues creation                                                            */
     /**************************************************************************************/
     if ((err = rt_queue_create(&q_messageToMon, "q_messageToMon", sizeof (Message*)*50, Q_UNLIMITED, Q_FIFO)) < 0) {
+        cerr << "Error msg queue create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    if ((err = rt_queue_create(&q_messageToRobot, "q_messageToRobot", sizeof (Message*)*50, Q_UNLIMITED, Q_FIFO)) < 0) {
+        cerr << "Error msg queue create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    if ((err = rt_queue_create(&q_reponseFromRobot, "q_reponseFromRobot", sizeof (Message*)*10, Q_UNLIMITED, Q_FIFO)) < 0) {
         cerr << "Error msg queue create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
@@ -160,7 +228,15 @@ void Tasks::Run() {
         cerr << "Error task start: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
-    if (err = rt_task_start(&th_openComRobot, (void(*)(void*)) & Tasks::OpenComRobot, this)) {
+    if (err = rt_task_start(&th_clearSupervisor, (void(*)(void*)) & Tasks::ClearSupervisor, this)) {
+        cerr << "Error task start: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_task_start(&th_manageComRobot, (void(*)(void*)) & Tasks::ManageComRobot, this)) {
+        cerr << "Error task start: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_task_start(&th_writeToRobot, (void(*)(void*)) & Tasks::WriteToRobot, this)) {
         cerr << "Error task start: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
@@ -290,9 +366,23 @@ void Tasks::ReceiveFromMonTask(void *arg) {
 }
 
 /**
+ * @brief Thread clearing supervisor. put in initial state
+ */
+void Tasks::ClearSupervisor(void *arg)
+{
+    cout << "Start " << __PRETTY_FUNCTION__ << endl << flush;
+    // Synchronization barrier (waiting that all tasks are starting)
+    rt_sem_p(&sem_barrier, TM_INFINITE);
+    /**************************************************************************************/
+    /* The task clearSupervisor starts here                                                */
+    /**************************************************************************************/
+}
+
+
+/**
  * @brief Thread opening communication with the robot.
  */
-void Tasks::OpenComRobot(void *arg) {
+void Tasks::ManageComRobot(void *arg) {
     int status;
     int err;
 
@@ -301,7 +391,7 @@ void Tasks::OpenComRobot(void *arg) {
     rt_sem_p(&sem_barrier, TM_INFINITE);
     
     /**************************************************************************************/
-    /* The task openComRobot starts here                                                  */
+    /* The task ManageComRobot starts here                                                  */
     /**************************************************************************************/
     while (1) {
         rt_sem_p(&sem_openComRobot, TM_INFINITE);
@@ -321,6 +411,24 @@ void Tasks::OpenComRobot(void *arg) {
         WriteInQueue(&q_messageToMon, msgSend); // msgSend will be deleted by sendToMon
     }
 }
+
+     
+/**
+ * @brief Thread sending data to robot.
+ */
+void Tasks::WriteToRobot(void *arg)
+{
+    cout << "Start " << __PRETTY_FUNCTION__ << endl << flush;
+    // Synchronization barrier (waiting that all tasks are starting)
+    rt_sem_p(&sem_barrier, TM_INFINITE);
+    
+    /**************************************************************************************/
+    /* The task writeToRobot starts here                                                    */
+    /**************************************************************************************/
+    
+    
+}
+
 
 /**
  * @brief Thread starting the communication with the robot.
