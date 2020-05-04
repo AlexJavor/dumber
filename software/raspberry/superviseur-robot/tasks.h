@@ -68,7 +68,6 @@ private:
     int move = MESSAGE_ROBOT_STOP;
     int withWD = 0;
     int comRobotOpen =0;
-    int compteurEchec = 0;
     Message *levelBat = new MessageBattery();
     int allowCapture = 0;
     Img image;
@@ -102,7 +101,6 @@ private:
     RT_MUTEX mutex_move;
     RT_MUTEX mutex_withWD;
     RT_MUTEX mutex_comRobotOpen;
-    RT_MUTEX mutex_compteurEchec;
     RT_MUTEX mutex_levelBat;
     RT_MUTEX mutex_allowCapture;
     RT_MUTEX mutex_image;
