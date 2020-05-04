@@ -69,7 +69,7 @@ private:
     int withWD = 0;
     int comRobotOpen =0;
     int compteurEchec = 0;
-    BatteryLevel levelBat = BATTERY_EMPTY;
+    Message *levelBat = new MessageBattery();
     int allowCapture = 0;
     Img image;
     int allowCapturePosition = 0;
