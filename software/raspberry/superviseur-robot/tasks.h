@@ -70,7 +70,7 @@ private:
     int comRobotOpen =0;
     Message *levelBat = new MessageBattery();
     int allowCapture = 0;
-    Img image;
+    Img *image;
     int allowCapturePosition = 0;
     Arena arena;
     int arenaIsCorrect=0;
